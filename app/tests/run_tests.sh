@@ -1,67 +1,77 @@
 #!/bin/bash
-
-# Test script for Wazuh MCP Server (rmcp-based)
-# This script runs various tests to ensure the server is working correctly
+# Test script for Python-based MCP Server connected with OpenAI API
+# This script runs unit, integration, and functional tests for the Python MCP Server
 
 set -e
 
-echo "Starting Wazuh MCP Server tests (rmcp-based)..."
+echo "============================================"
+echo "Starting Python MCP Server Tests..."
+echo "============================================"
 
-# Set test environment variables
-export RUST_LOG=info
+# Activate virtual environment
+echo "Activating virtual environment..."
+source ../venv/Scripts/activate
+
+# Set environment variables (replace YOUR_API_KEY with your actual key or use .env file)
+export OPENAI_API_KEY=${OPENAI_API_KEY:-"YOUR_API_KEY_HERE"}
+export LOG_LEVEL=info
 
 echo "Environment variables set:"
-echo "  RUST_LOG: $RUST_LOG"
+echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:0:6}******"
+echo "  LOG_LEVEL: $LOG_LEVEL"
 
-# Function to cleanup background processes
+# Define cleanup for any background processes
 cleanup() {
+    echo ""
     echo "Cleaning up..."
-    if [ ! -z "$SERVER_PID" ]; then
-        kill $SERVER_PID 2>/dev/null || true
-        wait $SERVER_PID 2>/dev/null || true
-    fi
+    pkill -f "python -m app.mcp_server" 2>/dev/null || true
 }
-
-# Set trap to cleanup on exit
 trap cleanup EXIT
 
 echo ""
 echo "=== Running Unit Tests ==="
-cargo test --lib
+pytest tests/unit --maxfail=1 --disable-warnings -q
 
 echo ""
-echo "=== Running MCP Protocol Tests ==="
-cargo test --test mcp_stdio_test
+echo "=== Running Integration Tests ==="
+pytest tests/integration --maxfail=1 --disable-warnings -q
 
 echo ""
-echo "=== Running Integration Tests with Mock Wazuh ==="
-cargo test --test rmcp_integration_test
+echo "=== Testing MCP Server Startup ==="
+echo "Starting MCP Server in background..."
+python -m app.mcp_server &
+SERVER_PID=$!
+
+sleep 5
+echo "Checking MCP Server health endpoint or log output..."
+# You can replace this with curl or a log check
+if ps -p $SERVER_PID > /dev/null; then
+    echo "Server is running successfully (PID: $SERVER_PID)"
+else
+    echo "❌ Server failed to start!"
+    exit 1
+fi
 
 echo ""
-echo "=== Testing Server Binary ==="
-echo "Verifying server binary can start and show help..."
-
-# Test that the binary can start and show help. It should exit immediately.
-cargo run --bin mcp-server-wazuh -- --help > /dev/null
-
-echo "Help command test completed"
+echo "Stopping MCP Server..."
+kill $SERVER_PID
+wait $SERVER_PID 2>/dev/null || true
 
 echo ""
 echo "=== All Tests Complete ==="
 echo ""
 echo "Test Summary:"
-echo "✓ Unit tests for library components"
-echo "✓ Wazuh client tests with mock HTTP server"
-echo "✓ MCP protocol tests via stdio"
-echo "✓ Integration tests with mock Wazuh API"
-echo "✓ Server binary startup test"
+echo "✓ Unit tests for core Python modules"
+echo "✓ Integration tests with mock OpenAI API"
+echo "✓ MCP Server startup test"
 echo ""
-echo "To test manually with a real Wazuh instance:"
-echo "  export WAZUH_HOST=your-wazuh-host"
-echo "  export WAZUH_PORT=9200"
-echo "  export WAZUH_USER=admin"
-echo "  export WAZUH_PASS=your-password"
-echo "  cargo run --bin mcp-server-wazuh"
+echo "To manually test MCP Server:"
+echo "  export OPENAI_API_KEY=your-api-key"
+echo "  python -m app.mcp_server"
 echo ""
-echo "Then send MCP commands via stdin, for example:"
-echo '  echo '"'"'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'"'"' | cargo run --bin mcp-server-wazuh'
+echo "Then send MCP commands via stdin or HTTP (depending on your server design):"
+echo "  echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}' | python -m app.mcp_server"
+echo ""
+echo "============================================"
+echo "Python MCP Server Test Run Finished"
+echo "============================================"
