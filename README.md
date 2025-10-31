@@ -9,6 +9,10 @@ We have to built a MCP Server for Wazuh SIEM.
   ```bash
     /venv/Scripts/activate
   ```
+OR 
+  ```bash
+   .\/.venv/Scripts/activate
+  ```
 **To Start the MCP Server:**
   ```bash
     uvicorn app.main:app --reload
