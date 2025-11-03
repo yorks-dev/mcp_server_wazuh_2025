@@ -15,7 +15,7 @@ app = FastAPI(title="MCP Server for Wazuh")
 
 @app.get("/")
 def home():
-    return {"message": "Welcome to the MCP Server for Wazuh"}
+    return {"message": "Welcome to the MCP Server for Wazuh. The MCP Server has been started successfully."}
 
 # ✅ New Route for LLM Queries
 @app.post("/query_llm/")
@@ -63,6 +63,8 @@ async def wazuh_search(plan: WazuhSearchPlan):
     except Exception as e:
         logging.exception("search failed")
         raise HTTPException(500, f"search failed: {e}")
+    
+    
 
 
         
