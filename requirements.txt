@@ -1,15 +1,16 @@
 fastapi>=0.95
 uvicorn[standard]>=0.21
-pydantic>=1.10
-pydantic-settings-2.11.0
+pydantic>=2.0
+pydantic-settings==2.1.0
 opensearch-py>=2.0.0
 python-dotenv>=1.0
 httpx>=0.24
 limits>=2.2.1          # optional rate-limiting helper
-distro-1.9.0 
-jiter-0.11.1 
-openai-2.5.0 
-tqdm-4.67.1
+distro==1.9.0 
+jiter==0.11.1 
+openai==1.52.0
+tqdm==4.67.1
+
 
 
 
