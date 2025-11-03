@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from typing import List
 
 class Settings(BaseSettings):
     OPENSEARCH_HOST: str = "http://localhost:9200"
@@ -24,66 +24,9 @@ class Settings(BaseSettings):
     WAZUH_INDEXER_PASSWORD: str = "admin"
     WAZUH_VERIFY_SSL: bool = False
 
-    # 🧠 Add OpenAI key
-    OPENAI_API_KEY: str  = "sk-proj-"
-    
+    OPENAI_API_KEY: str  # read from .env automatically
 
     class Config:
-        validate_by_name = True  # ✅ Pydantic v2 key
         env_file = ".env"
 
 settings = Settings()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
