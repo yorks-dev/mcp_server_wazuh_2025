@@ -3,8 +3,8 @@ from typing import List
 
 class Settings(BaseSettings):
     OPENSEARCH_HOST: str = "http://localhost:9200"
-    OPENSEARCH_USER: str  = "Preetam"
-    OPENSEARCH_PASS: str  = "wazuh"
+    OPENSEARCH_USER: str  = "admin"
+    OPENSEARCH_PASS: str  = "admin"
     INDEX_ALLOWLIST: List[str] = ["wazuh-alerts-*"]
     FIELD_ALLOWLIST: List[str] = [
         "rule.id", "rule.level", "agent.name",
