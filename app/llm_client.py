@@ -1,23 +1,16 @@
-# app/llm_client.py
 from openai import OpenAI
-from .config import settings
+from app.config import settings  # or wherever your .env is loaded
 
-# ✅ Initialize OpenAI client properly
+# Create the OpenAI client
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-def ask_openai(prompt: str, model: str = "gpt-4o-mini") -> str:
-    """
-    Sends a user prompt to OpenAI and returns the model's response.
-    """
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are an AI assistant for Wazuh MCP Server."},
-                {"role": "user", "content": prompt},
-            ]
-        )
-        # ✅ Updated response access for new SDK
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error from OpenAI: {str(e)}"
+def ask_openai(prompt: str):
+    """Send a query to the OpenAI model."""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # or "gpt-4o" depending on your key access
+        messages=[
+            {"role": "system", "content": "You are an MCP assistant connected to Wazuh SIEM."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    return response.choices[0].message.content
