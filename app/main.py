@@ -8,10 +8,11 @@ from .validators import is_index_allowed, validate_filters, enforce_time_window
 from .dsl_builder import build_dsl
 from .es_client import validate_query, execute_query
 from .llm_client import ask_openai
+from app.wazuh_client import WazuhClient
 from .config import settings
 import logging
 
-app = FastAPI(title="MCP Server for Wazuh")
+app = FastAPI(title = "MCP Server for Wazuh")
 
 @app.get("/")
 def home():
@@ -63,6 +64,38 @@ async def wazuh_search(plan: WazuhSearchPlan):
     except Exception as e:
         logging.exception("search failed")
         raise HTTPException(500, f"search failed: {e}")
+
+def connect_to_wazuh():
+    wazuh_url = f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}"
+    username = settings.WAZUH_API_USERNAME
+    password = settings.WAZUH_API_PASSWORD
+
+    client = WazuhClient(wazuh_url, username, password, timeout=60)
+    client.authenticate()
+
+    # Example: Fetch agents
+    agents = client.get_agents()
+    print(f"Connected Agents: {len(agents)}")
+    for agent in agents[:5]:
+        print(f"- ID: {agent['id']}, Name: {agent['name']}, Status: {agent['status']}")
+
+    # Example: Fetch alerts
+    alerts = client.get_alerts(limit=3)
+    print("\nRecent Alerts:")
+    for alert in alerts:
+        print(json.dumps(alert, indent=2))
+
+if __name__ == "__main__":
+    connect_to_wazuh()
+
+
+    
+
+
+    
+
+
+
     
     
 
