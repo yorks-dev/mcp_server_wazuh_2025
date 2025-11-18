@@ -16,11 +16,11 @@ class Settings(BaseSettings):
 
      # 🧠 Update these fields for your remote Wazuh Server
     WAZUH_API_HOST: str = "https://10.21.236.157"
-    WAZUH_API_PORT: int = 1514
+    WAZUH_API_PORT: int = 8006
     WAZUH_API_USERNAME: str = "wazuh"
     WAZUH_API_PASSWORD: str = "wazuh1234"
     WAZUH_INDEXER_HOST: str = "https://10.21.236.157"
-    WAZUH_INDEXER_PORT: int = 9200
+    WAZUH_INDEXER_PORT: int = 8006
     WAZUH_INDEXER_USERNAME: str = "admin"
     WAZUH_INDEXER_PASSWORD: str = "admin"
     WAZUH_VERIFY_SSL: bool = False
