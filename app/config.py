@@ -14,16 +14,19 @@ class Settings(BaseSettings):
     MAX_LIMIT: int = 200
     DEFAULT_TZ: str = "UTC"
 
-     # 🧠 Update these fields for your remote Wazuh Server
+        # Wazuh API (Manager)
     WAZUH_API_HOST: str = "https://10.21.236.157"
-    WAZUH_API_PORT: int = 8006
-    WAZUH_API_USERNAME: str = "wazuh"
-    WAZUH_API_PASSWORD: str = "wazuh1234"
+    WAZUH_API_PORT: int = 55000
+    WAZUH_API_USERNAME: str = "admin"
+    WAZUH_API_PASSWORD: str = "NxFdeGIYQMtZ8077IQ?qJRABNpPsPYoa"
+    # Wazuh Indexer (Search)
     WAZUH_INDEXER_HOST: str = "https://10.21.236.157"
-    WAZUH_INDEXER_PORT: int = 8006
-    WAZUH_INDEXER_USERNAME: str = "admin"
-    WAZUH_INDEXER_PASSWORD: str = "admin"
+    WAZUH_INDEXER_PORT: int = 9200
+    WAZUH_INDEXER_USERNAME: str = "admin"   # default indexer user
+    WAZUH_INDEXER_PASSWORD: str = "admin"   # unless changed manually
+    # SSL (self-signed cert)
     WAZUH_VERIFY_SSL: bool = False
+
 
     OPENAI_API_KEY: str = "sk-proj-"
 
@@ -32,8 +35,6 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 settings = Settings()
-
-
 
 
 
