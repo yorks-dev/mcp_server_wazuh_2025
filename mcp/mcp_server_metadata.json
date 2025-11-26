@@ -42,8 +42,8 @@
   },
   "authentication": {
     "wazuh_api_username": "admin",
-    "wazuh_api_password": "YOUR_AREAL_PASSWORD_HERE",
-    "token_refresh_minutes": 60
+    "wazuh_api_password": "NxFdeGIYQMtZ8077IQ?qJRABNpPsPYoa",
+    "token_refresh_minutes": 10
   },
   "logging": {
     "enabled": true,
