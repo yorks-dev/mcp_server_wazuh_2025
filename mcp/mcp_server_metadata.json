@@ -1,1 +1,58 @@
-class Settings(self.x): 
+{
+  "mcp_server_name": "MCP-Wazuh-Bridge",
+  "version": "1.0.0",
+  "description": "Metadata and capability manifest for the MCP Server integrated with Wazuh SIEM.",
+
+  "tools": [
+    {
+      "name": "wazuh-get-alerts",
+      "description": "Fetch recent Wazuh alerts from API.",
+      "endpoint": "/api/v1/wazuh/alerts",
+      "method": "GET",
+      "requires_auth": true
+    },
+    {
+      "name": "wazuh-get-agents",
+      "description": "Fetch all Wazuh agents and their status.",
+      "endpoint": "/api/v1/wazuh/agents",
+      "method": "GET",
+      "requires_auth": true
+    },
+    {
+      "name": "wazuh-restart-manager",
+      "description": "Restart Wazuh Manager service through API.",
+      "endpoint": "/api/v1/wazuh/manager/restart",
+      "method": "POST",
+      "requires_auth": true
+    },
+    {
+      "name": "health-check",
+      "description": "Check connectivity between MCP and Wazuh Indexer/Manager.",
+      "endpoint": "/api/v1/mcp/health",
+      "method": "GET",
+      "requires_auth": false
+    }
+  ],
+  "wazuh_config": {
+    "api_host": "https://10.21.236.157",
+    "api_port": 55000,
+    "indexer_host": "https://10.21.236.157",
+    "indexer_port": 9200,
+    "verify_ssl": false
+  },
+  "authentication": {
+    "wazuh_api_username": "admin",
+    "wazuh_api_password": "YOUR_AREAL_PASSWORD_HERE",
+    "token_refresh_minutes": 60
+  },
+  "logging": {
+    "enabled": true,
+    "level": "INFO",
+    "file": "logs/mcp_wazuh_server.log"
+  }
+"schemas": {
+  "alert_query": {
+    "fields": ["agent_id", "severity", "limit"]
+  }
+}
+
