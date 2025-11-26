@@ -1,1 +1,40 @@
-
+{
+  "tools": [
+    {
+      "name": "wazuh_get_alerts",
+      "description": "Fetch recent alerts from Wazuh Manager.",
+      "method": "GET",
+      "endpoint": "/api/v1/wazuh/alerts",
+      "request_schema": "AlertQuery",
+      "response_schema": "AlertsResponse",
+      "requires_auth": true
+    },
+    {
+      "name": "wazuh_get_agents",
+      "description": "Fetch connected Wazuh agents and their health.",
+      "method": "GET",
+      "endpoint": "/api/v1/wazuh/agents",
+      "request_schema": null,
+      "response_schema": "AgentsResponse",
+      "requires_auth": true
+    },
+    {
+      "name": "wazuh_restart_manager",
+      "description": "Restart the Wazuh Manager service via the API.",
+      "method": "POST",
+      "endpoint": "/api/v1/wazuh/manager/restart",
+      "request_schema": null,
+      "response_schema": null,
+      "requires_auth": true
+    },
+    {
+      "name": "mcp_health_check",
+      "description": "Check the health of MCP server and Wazuh connectivity.",
+      "method": "GET",
+      "endpoint": "/api/v1/mcp/health",
+      "request_schema": null,
+      "response_schema": "HealthStatus",
+      "requires_auth": false
+    }
+  ]
+}
