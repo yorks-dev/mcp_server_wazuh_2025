@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     WAZUH_INDEXER_USERNAME: str = "admin"   # default indexer user
     WAZUH_INDEXER_PASSWORD: str = "admin"   # unless changed manually
     # SSL (self-signed cert)
-    WAZUH_VERIFY_SSL: bool = False
+    WAZUH_VERIFY_SSL: bool = True
 
 
     OPENAI_API_KEY: str = "sk-proj-"
