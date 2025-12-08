@@ -14,14 +14,19 @@ class WazuhClient:
 
     def authenticate(self):
         url = f"{self.wazuh_url}/security/user/authenticate"
-        payload = {"username": self.username, "password": self.password}
         print(f"[*] Connecting to Wazuh API: {url}")
         try:
-            response = requests.post(url, json=payload, verify=False, timeout=self.timeout)
+            # Use HTTP Basic Auth (not JSON payload)
+            response = requests.get(
+                url, 
+                auth=(self.username, self.password),
+                verify=False, 
+                timeout=self.timeout
+            )
             response.raise_for_status()
             data = response.json()
             self.token = data.get("data", {}).get("token")
-            print("[+] Authentication successful.")
+            print(f"[+] Authentication successful. Token: {self.token[:20]}...")
         except requests.exceptions.RequestException as e:
             print(f"[!] Wazuh API connection failed: {e}")
             return

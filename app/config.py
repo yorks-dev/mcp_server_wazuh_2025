@@ -14,16 +14,16 @@ class Settings(BaseSettings):
     MAX_LIMIT: int = 200
     DEFAULT_TZ: str = "UTC"
 
-        # Wazuh API (Manager)
+    # Wazuh API (Manager)
     WAZUH_API_HOST: str = "https://10.21.236.157"
     WAZUH_API_PORT: int = 55000
-    WAZUH_API_USERNAME: str = "admin"
-    WAZUH_API_PASSWORD: str = "NxFdeGIYQMtZ8077IQ?qJRABNpPsPYoa"
+    WAZUH_API_USERNAME: str = "wazuh"
+    WAZUH_API_PASSWORD: str = "6p.nYz22OL7?52DwjX.OuzSKkunhRgqZ"
     # Wazuh Indexer (Search)
     WAZUH_INDEXER_HOST: str = "https://10.21.236.157"
     WAZUH_INDEXER_PORT: int = 9200
-    WAZUH_INDEXER_USERNAME: str = "admin"   # default indexer user
-    WAZUH_INDEXER_PASSWORD: str = "admin"   # unless changed manually
+    WAZUH_INDEXER_USERNAME: str = "admin"
+    WAZUH_INDEXER_PASSWORD: str = "NxFdeGIYQMtZ8077IQ?qJRABNpPsPYoa"
     # SSL (self-signed cert)
     WAZUH_VERIFY_SSL: bool = True
 
