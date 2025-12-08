@@ -134,12 +134,12 @@ def connect_to_wazuh():
         print(f"  Level: {alert.get('rule', {}).get('level', 'N/A')}")
 
 if __name__ == "__main__":
-    # Test connection when run directly
     connect_to_wazuh()
-    
     # Start server
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 
 
     
