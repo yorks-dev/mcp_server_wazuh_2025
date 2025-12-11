@@ -34,8 +34,9 @@ class WazuhSearchPlan(BaseModel):
     limit: Optional[int] = Field(50, le=200)
     dry_run: Optional[bool] = False
 
-    class Config:
-        validate_by_name = True
+    model_config = {
+        "populate_by_name": True
+    }
 
 
         

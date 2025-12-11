@@ -10,6 +10,8 @@ FIELD_TYPES = {
     "agent.name": "keyword",
     "data.srcip": "ip",
     "@timestamp": "date",
+    "manager.name": "keyword",
+    "vulnerability.severity": "keyword",
 }
 def is_index_allowed(indices: str) -> bool:
     # simple wildcard match

@@ -22,11 +22,19 @@ async def startup_event():
     global wazuh_client
     wazuh_url = f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}"
     wazuh_client = WazuhClient(wazuh_url, settings.WAZUH_API_USERNAME, settings.WAZUH_API_PASSWORD)
-    wazuh_client.authenticate()
+    await wazuh_client.authenticate()
     if wazuh_client.token:
         logging.info(f"✓ Wazuh authenticated successfully")
     else:
         logging.error("✗ Wazuh authentication failed")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup resources on shutdown"""
+    global wazuh_client
+    if wazuh_client:
+        await wazuh_client.close()
+        logging.info("✓ Wazuh client closed")
 
 @app.get("/")
 def home():
@@ -42,8 +50,8 @@ async def get_wazuh_agents():
     if not wazuh_client or not wazuh_client.token:
         raise HTTPException(status_code=401, detail="Not authenticated to Wazuh")
     
-    agents = wazuh_client.get_agents()
-    return {"total": len(agents), "agents": agents}
+    result = await wazuh_client.get_agents()
+    return result
 
 @app.get("/test")
 async def test_wazuh_connection():
@@ -51,7 +59,8 @@ async def test_wazuh_connection():
     if not wazuh_client or not wazuh_client.token:
         raise HTTPException(status_code=401, detail="Not authenticated to Wazuh")
     
-    agents = wazuh_client.get_agents()
+    result = await wazuh_client.get_agents()
+    agents = result.get("agents", [])
     return {
         "status": "connected",
         "token_valid": True,
@@ -59,11 +68,122 @@ async def test_wazuh_connection():
         "sample_agents": [{"id": a["id"], "name": a["name"], "status": a["status"]} for a in agents[:3]]
     }
 
-# ✅ New Route for LLM Queries
+# ✅ Natural Language Query Endpoint (Complete Flow with DSL)
+@app.post("/query/")
+async def natural_language_query(data: dict):
+    """
+    Natural language query endpoint with complete LLM + DSL flow:
+    User Query → LLM Parse → WazuhSearchPlan → DSL Builder → Indexer → LLM Format → Natural Response
+    
+    Example: {"query": "Show me critical alerts from the last 24 hours"}
+    """
+    from .llm_client import parse_natural_language_query, format_wazuh_response
+    
+    query = data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    try:
+        # Step 1: LLM parses natural language to WazuhSearchPlan structure
+        parsed = parse_natural_language_query(query)
+        logging.info(f"Parsed query: {parsed}")
+        
+        # Step 2: Validate and create WazuhSearchPlan
+        try:
+            plan = WazuhSearchPlan(**parsed)
+        except ValidationError as e:
+            logging.error(f"Invalid search plan: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid query structure: {str(e)}")
+        
+        # Step 3: Validate plan
+        if not is_index_allowed(plan.indices):
+            raise HTTPException(400, "Index not allowed")
+        if not enforce_time_window(plan.time.from_, plan.time.to):
+            raise HTTPException(400, "Time window too large or invalid")
+        
+        try:
+            validate_filters(plan.filters or [])
+            validate_filters(plan.must_not or [])
+        except Exception as e:
+            raise HTTPException(400, f"Invalid filters: {str(e)}")
+        
+        # Step 4: Build DSL from plan
+        dsl = build_dsl(plan)
+        logging.info(f"Generated DSL: {dsl}")
+        
+        # Step 5: Execute query against Wazuh Indexer
+        raw_data = execute_query(plan.indices, dsl)
+        logging.info(f"Query results: {raw_data.get('hits', {}).get('total', 0)} hits")
+        
+        # Step 6: LLM formats response to natural language
+        natural_response = format_wazuh_response(raw_data, query)
+        
+        return {
+            "query": query,
+            "parsed_plan": parsed,
+            "dsl": dsl,
+            "raw_data": raw_data,
+            "response": natural_response
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception("Natural language query failed")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+# ✅ Simple Natural Language Query (Wazuh API - No DSL)
+@app.post("/query/simple")
+async def simple_natural_language_query(data: dict):
+    """
+    Simple natural language query using Wazuh API directly (no DSL).
+    Faster but less flexible than /query/ endpoint.
+    
+    Example: {"query": "Show me recent alerts"}
+    """
+    from .llm_client import format_wazuh_response
+    
+    query = data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    if not wazuh_client or not wazuh_client.token:
+        raise HTTPException(status_code=401, detail="Not authenticated to Wazuh")
+    
+    try:
+        # Simple keyword detection for query routing
+        query_lower = query.lower()
+        
+        if "agent" in query_lower:
+            raw_data = await wazuh_client.get_agents()
+        else:
+            # Default to alerts with basic params
+            limit = 50
+            if "critical" in query_lower:
+                raw_data = await wazuh_client.get_alerts(severity="12", limit=limit)
+            elif "high" in query_lower:
+                raw_data = await wazuh_client.get_alerts(severity="8", limit=limit)
+            else:
+                raw_data = await wazuh_client.get_alerts(limit=limit)
+        
+        # Format response
+        natural_response = format_wazuh_response(raw_data, query)
+        
+        return {
+            "query": query,
+            "raw_data": raw_data,
+            "response": natural_response
+        }
+    
+    except Exception as e:
+        logging.exception("Simple query failed")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+# ✅ Simple LLM Query (for testing)
 @app.post("/query_llm/")
 async def query_llm(data: dict):
     """
-    Endpoint to query OpenAI from MCP Server.
+    Simple endpoint to query OpenAI LLM.
     Example body: { "prompt": "Summarize recent alerts from Wazuh" }
     """
     prompt = data.get("prompt")
@@ -106,27 +226,29 @@ async def wazuh_search(plan: WazuhSearchPlan):
         logging.exception("search failed")
         raise HTTPException(500, f"search failed: {e}")
 
-def connect_to_wazuh():
+async def connect_to_wazuh():
     # Build full URL properly
     wazuh_url = f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}"
     username = settings.WAZUH_API_USERNAME
     password = settings.WAZUH_API_PASSWORD
 
     client = WazuhClient(wazuh_url, username, password, timeout=60)
-    client.authenticate()
+    await client.authenticate()
 
     if not client.token:
         print("[!] Failed to authenticate to Wazuh API")
         return
 
     # Example: Fetch agents
-    agents = client.get_agents()
+    result = await client.get_agents()
+    agents = result.get("agents", [])
     print(f"\n[+] Connected Agents: {len(agents)}")
     for agent in agents[:5]:
         print(f"- ID: {agent['id']}, Name: {agent['name']}, Status: {agent['status']}")
 
     # Example: Fetch alerts
-    alerts = client.get_alerts(limit=3)
+    alert_result = await client.get_alerts(limit=3)
+    alerts = alert_result.get("alerts", [])
     print(f"\n[+] Recent Alerts: {len(alerts)}")
     for alert in alerts:
         print(f"- Timestamp: {alert.get('timestamp', 'N/A')}")
@@ -134,7 +256,8 @@ def connect_to_wazuh():
         print(f"  Level: {alert.get('rule', {}).get('level', 'N/A')}")
 
 if __name__ == "__main__":
-    connect_to_wazuh()
+    import asyncio
+    asyncio.run(connect_to_wazuh())
     # Start server
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -28,6 +28,24 @@
       "requires_auth": true
     },
     {
+      "name": "wazuh_natural_query",
+      "description": "Query Wazuh using natural language. Uses LLM to parse query, builds DSL, executes against Wazuh Indexer, and returns natural language summary.",
+      "method": "POST",
+      "endpoint": "/api/v1/wazuh/query",
+      "request_schema": "NaturalLanguageQuery",
+      "response_schema": "NaturalLanguageResponse",
+      "requires_auth": true
+    },
+    {
+      "name": "wazuh_simple_query",
+      "description": "Simple natural language query using Wazuh API directly (no DSL). Faster but less flexible.",
+      "method": "POST",
+      "endpoint": "/api/v1/wazuh/query/simple",
+      "request_schema": "NaturalLanguageQuery",
+      "response_schema": "NaturalLanguageResponse",
+      "requires_auth": true
+    },
+    {
       "name": "mcp_health_check",
       "description": "Check the health of MCP server and Wazuh connectivity.",
       "method": "GET",
