@@ -315,10 +315,4 @@ curl -k -u wazuh:password https://wazuh-server:55000/
 
 ---
 
-## 📝 License
-
-[Add your license here]
-
----
-
 **Built for SOC operators** 🛡️
