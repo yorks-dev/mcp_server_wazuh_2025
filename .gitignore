@@ -146,6 +146,7 @@ celerybeat.pid
 .envrc
 
 # Virtual Environment
+.venv/
 env/
 venv/
 ENV/
