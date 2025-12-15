@@ -2,6 +2,7 @@
 # Full endpoint for wazuh.search 
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from .schemas import WazuhSearchPlan
 from .validators import is_index_allowed, validate_filters, enforce_time_window
@@ -13,6 +14,15 @@ from .config import settings
 import logging
 
 app = FastAPI(title = "MCP Server for Wazuh")
+
+# CORS - allow all origins for development (restrict in production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize Wazuh client on startup
 wazuh_client = None

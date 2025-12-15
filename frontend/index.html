@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wazuh MCP Operator Console</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Wazuh MCP Operator Console</h1>
+            <p class="subtitle">Natural Language Security Operations</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Pipeline Selection -->
+            <div class="pipeline-selector">
+                <h2>Select Pipeline</h2>
+                <div class="pipeline-buttons">
+                    <button class="pipeline-btn active" data-pipeline="simple">
+                        <span class="icon">⚡</span>
+                        <span class="label">Simple Query</span>
+                        <span class="desc">Quick agent & alert checks</span>
+                    </button>
+                    <button class="pipeline-btn" data-pipeline="advanced">
+                        <span class="icon">🎯</span>
+                        <span class="label">Advanced Query</span>
+                        <span class="desc">Complex filtering & time ranges</span>
+                    </button>
+                    <button class="pipeline-btn" data-pipeline="dsl">
+                        <span class="icon">⚙️</span>
+                        <span class="label">Direct DSL</span>
+                        <span class="desc">Pre-built OpenSearch queries</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Query Interface -->
+            <div class="query-section">
+                <!-- Simple & Advanced Query Input -->
+                <div class="query-input-container" id="nlQueryContainer">
+                    <h3>Enter Your Query</h3>
+                    <div class="examples">
+                        <span class="example-label">Examples:</span>
+                        <span class="example-chip" data-query="Show me all agents">Show me all agents</span>
+                        <span class="example-chip" data-query="Show me critical alerts from the last 24 hours">Critical alerts (24h)</span>
+                        <span class="example-chip" data-query="List high severity alerts from last week">High severity (1 week)</span>
+                    </div>
+                    <textarea 
+                        id="queryInput" 
+                        placeholder="e.g., Show me all active agents with critical alerts from the last 24 hours"
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <!-- DSL Query Input -->
+                <div class="query-input-container hidden" id="dslQueryContainer">
+                    <h3>Enter DSL Query</h3>
+                    <div class="examples">
+                        <span class="example-label">Template:</span>
+                        <button class="example-chip" id="loadDslTemplate">Load Template</button>
+                    </div>
+                    <textarea 
+                        id="dslInput" 
+                        placeholder='{"indices": "wazuh-alerts-*", "time": {"from": "now-24h", "to": "now"}, "filters": [], "limit": 50}'
+                        rows="12"
+                    ></textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="executeBtn" class="btn btn-primary">
+                        <span class="btn-icon">🚀</span>
+                        Execute Query
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary">
+                        <span class="btn-icon">🗑️</span>
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section">
+                <div class="results-header">
+                    <h3>Results</h3>
+                    <div class="results-meta">
+                        <span id="resultCount"></span>
+                        <span id="executionTime"></span>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loadingState" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Executing query...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="error-message hidden">
+                    <span class="error-icon">⚠️</span>
+                    <div class="error-content">
+                        <h4>Query Failed</h4>
+                        <p id="errorMessage"></p>
+                    </div>
+                </div>
+
+                <!-- Success State -->
+                <div id="successState" class="hidden">
+                    <!-- Natural Language Response -->
+                    <div id="nlResponse" class="nl-response">
+                        <h4>📝 Summary</h4>
+                        <p id="nlResponseText"></p>
+                    </div>
+
+                    <!-- Raw Data Tabs -->
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="formatted">Formatted</button>
+                        <button class="tab-btn" data-tab="raw">Raw JSON</button>
+                        <button class="tab-btn" data-tab="dsl">Generated DSL</button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content">
+                        <div id="formattedTab" class="tab-pane active">
+                            <div id="formattedData"></div>
+                        </div>
+                        <div id="rawTab" class="tab-pane">
+                            <pre id="rawData"></pre>
+                        </div>
+                        <div id="dslTab" class="tab-pane">
+                            <pre id="dslData"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <div class="status">
+                <span class="status-indicator" id="serverStatus"></span>
+                <span id="serverStatusText">Checking server...</span>
+            </div>
+            <div class="info">
+                Powered by GPT-4o | Wazuh SIEM
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
