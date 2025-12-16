@@ -16,40 +16,36 @@
         <div class="main-content">
             <!-- Pipeline Selection -->
             <div class="pipeline-selector">
-                <h2>Select Pipeline</h2>
+                <h2>Select Query Method</h2>
                 <div class="pipeline-buttons">
-                    <button class="pipeline-btn active" data-pipeline="simple">
-                        <span class="icon">⚡</span>
-                        <span class="label">Simple Query</span>
-                        <span class="desc">Quick agent & alert checks</span>
-                    </button>
-                    <button class="pipeline-btn" data-pipeline="advanced">
-                        <span class="icon">🎯</span>
-                        <span class="label">Advanced Query</span>
-                        <span class="desc">Complex filtering & time ranges</span>
+                    <button class="pipeline-btn active" data-pipeline="nl">
+                        <span class="icon">🤖</span>
+                        <span class="label">Natural Language</span>
+                        <span class="desc">AI automatically routes to simple or advanced pipeline</span>
                     </button>
                     <button class="pipeline-btn" data-pipeline="dsl">
                         <span class="icon">⚙️</span>
                         <span class="label">Direct DSL</span>
-                        <span class="desc">Pre-built OpenSearch queries</span>
+                        <span class="desc">Manual OpenSearch query (for experts)</span>
                     </button>
                 </div>
             </div>
 
             <!-- Query Interface -->
             <div class="query-section">
-                <!-- Simple & Advanced Query Input -->
+                <!-- Natural Language Query Input -->
                 <div class="query-input-container" id="nlQueryContainer">
-                    <h3>Enter Your Query</h3>
+                    <h3>Ask in Natural Language (AI will choose the right pipeline)</h3>
                     <div class="examples">
                         <span class="example-label">Examples:</span>
-                        <span class="example-chip" data-query="Show me all agents">Show me all agents</span>
+                        <span class="example-chip" data-query="Show me all agents">All agents</span>
                         <span class="example-chip" data-query="Show me critical alerts from the last 24 hours">Critical alerts (24h)</span>
+                        <span class="example-chip" data-query="Get logs from last 15 minutes">Recent logs (15m)</span>
                         <span class="example-chip" data-query="List high severity alerts from last week">High severity (1 week)</span>
                     </div>
                     <textarea 
                         id="queryInput" 
-                        placeholder="e.g., Show me all active agents with critical alerts from the last 24 hours"
+                        placeholder="e.g., Show me all active agents OR Get critical alerts from the last hour"
                         rows="3"
                     ></textarea>
                 </div>
@@ -108,6 +104,11 @@
 
                 <!-- Success State -->
                 <div id="successState" class="hidden">
+                    <!-- Routing Information (NL queries only) -->
+                    <div id="routingInfo" class="routing-info" style="display: none;">
+                        <!-- Populated dynamically by JavaScript -->
+                    </div>
+
                     <!-- Natural Language Response -->
                     <div id="nlResponse" class="nl-response">
                         <h4>📝 Summary</h4>
@@ -123,14 +124,11 @@
 
                     <!-- Tab Contents -->
                     <div class="tab-content">
-                        <div id="formattedTab" class="tab-pane active">
-                            <div id="formattedData"></div>
+                        <div id="formattedData" class="tab-pane active">
                         </div>
-                        <div id="rawTab" class="tab-pane">
-                            <pre id="rawData"></pre>
+                        <div id="rawData" class="tab-pane">
                         </div>
-                        <div id="dslTab" class="tab-pane">
-                            <pre id="dslData"></pre>
+                        <div id="dslData" class="tab-pane">
                         </div>
                     </div>
                 </div>

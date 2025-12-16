@@ -34,15 +34,15 @@
     }
   ],
   "wazuh_config": {
-    "api_host": "https://10.21.236.157",
-    "api_port": 55000,
-    "indexer_host": "https://10.21.236.157",
-    "indexer_port": 9200,
-    "verify_ssl": false
+    "api_host": "env:WAZUH_API_HOST",
+    "api_port": "env:WAZUH_API_PORT",
+    "indexer_host": "env:WAZUH_INDEXER_HOST",
+    "indexer_port": "env:WAZUH_INDEXER_PORT",
+    "verify_ssl": "env:WAZUH_VERIFY_SSL"
   },
   "authentication": {
-    "wazuh_api_username": "admin",
-    "wazuh_api_password": "NxFdeGIYQMtZ8077IQ?qJRABNpPsPYoa",
+    "wazuh_api_username": "env:WAZUH_API_USERNAME",
+    "wazuh_api_password": "env:WAZUH_API_PASSWORD",
     "token_refresh_minutes": 10
   },
   "logging": {

@@ -11,6 +11,7 @@ from .es_client import validate_query, execute_query
 from .llm_client import ask_openai
 from .wazuh_client import WazuhClient
 from .config import settings
+from mcp import MCPHandlers
 import logging
 
 app = FastAPI(title = "MCP Server for Wazuh")
@@ -20,39 +21,63 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],                                                                                                                                                                
     allow_headers=["*"],
 )
 
-# Initialize Wazuh client on startup
+# Initialize Wazuh client and MCP handlers on startup
 wazuh_client = None
+mcp_handlers = None
 
 @app.on_event("startup")
 async def startup_event():
-    global wazuh_client
+    global wazuh_client, mcp_handlers
     wazuh_url = f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}"
     wazuh_client = WazuhClient(wazuh_url, settings.WAZUH_API_USERNAME, settings.WAZUH_API_PASSWORD)
     await wazuh_client.authenticate()
+    
+    # Initialize MCP handlers
+    mcp_handlers = MCPHandlers(
+        wazuh_url=wazuh_url,
+        username=settings.WAZUH_API_USERNAME,
+        password=settings.WAZUH_API_PASSWORD
+    )
+    await mcp_handlers.client.authenticate()
+    
     if wazuh_client.token:
         logging.info(f"✓ Wazuh authenticated successfully")
+        logging.info(f"✓ MCP handlers initialized")
     else:
         logging.error("✗ Wazuh authentication failed")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup resources on shutdown"""
-    global wazuh_client
+    global wazuh_client, mcp_handlers
     if wazuh_client:
         await wazuh_client.close()
         logging.info("✓ Wazuh client closed")
+    if mcp_handlers:
+        await mcp_handlers.close()
+        logging.info("✓ MCP handlers closed")
 
 @app.get("/")
 def home():
     return {
         "message": "Welcome to the MCP Server for Wazuh. The MCP Server has been started successfully.",
         "authenticated": wazuh_client.token is not None if wazuh_client else False,
-        "wazuh_url": f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}"
+        "wazuh_url": f"{settings.WAZUH_API_HOST}:{settings.WAZUH_API_PORT}",
+        "mcp_enabled": mcp_handlers is not None
     }
+
+@app.get("/health")
+async def health_check():
+    """MCP Health check endpoint"""
+    if not mcp_handlers:
+        raise HTTPException(status_code=503, detail="MCP handlers not initialized")
+    
+    health_status = await mcp_handlers.mcp_health_check()
+    return health_status
 
 @app.get("/agents")
 async def get_wazuh_agents():
@@ -235,6 +260,189 @@ async def wazuh_search(plan: WazuhSearchPlan):
     except Exception as e:
         logging.exception("search failed")
         raise HTTPException(500, f"search failed: {e}")
+
+# ==================== NEW UNIFIED QUERY ENDPOINTS ====================
+
+@app.post("/query/nl")
+async def query_natural_language_unified(data: dict):
+    """
+    Unified Natural Language query endpoint with intelligent routing.
+    GPT-4o automatically decides between SIMPLE_PIPELINE and ADVANCED_PIPELINE.
+    
+    Example: {"query": "Show me all agents"}
+    """
+    from .llm_client import route_query, parse_simple_query, parse_query_to_plan, format_results
+    
+    query = data.get("query", "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    try:
+        # Step 1: Route the query
+        routing = await route_query(query)
+        pipeline = routing["pipeline"]
+        logging.info(f"Routing decision: {pipeline} (confidence: {routing['confidence']})")
+        
+        # Step 2: Execute the appropriate pipeline
+        if pipeline == "SIMPLE_PIPELINE":
+            # Use Wazuh Manager API for simple queries
+            parsed = await parse_simple_query(query)
+            logging.info(f"Simple query parsed: {parsed}")
+            
+            # Execute based on parsed intent
+            if parsed["operation"] == "list_agents":
+                raw_results = await wazuh_client.get_agents()
+                
+                # Apply client-side filtering if status is specified
+                status_filter = parsed["filters"].get("status")
+                if status_filter:
+                    agents = raw_results.get("agents", [])
+                    filtered_agents = [
+                        agent for agent in agents 
+                        if agent.get("status", "").lower() == status_filter.lower()
+                    ]
+                    raw_results = {
+                        "total": len(filtered_agents),
+                        "agents": filtered_agents,
+                        "data": {"affected_items": filtered_agents}
+                    }
+                else:
+                    # Add data wrapper for consistency with API format
+                    raw_results["data"] = {"affected_items": raw_results.get("agents", [])}
+                    
+            elif parsed["operation"] == "get_agent":
+                agent_id = parsed["filters"].get("agent_id")
+                # Check if get_agent_by_id exists, otherwise filter from get_agents
+                if hasattr(wazuh_client, 'get_agent_by_id'):
+                    raw_results = await wazuh_client.get_agent_by_id(agent_id)
+                else:
+                    all_agents = await wazuh_client.get_agents()
+                    agents = all_agents.get("agents", [])
+                    agent = next((a for a in agents if a.get("id") == agent_id), None)
+                    if agent:
+                        raw_results = {"data": {"affected_items": [agent]}}
+                    else:
+                        raw_results = {"data": {"affected_items": []}}
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported operation: {parsed['operation']}"
+                )
+            
+            # Format results
+            formatted_response = await format_results(query, raw_results)
+            
+            return {
+                "success": True,
+                "routing": routing,
+                "pipeline": pipeline,
+                "parsed_query": parsed,
+                "summary": formatted_response,
+                "raw_data": raw_results,
+                "dsl": None  # No DSL for simple queries
+            }
+            
+        elif pipeline == "ADVANCED_PIPELINE":
+            # Use Elasticsearch/OpenSearch Indexer for advanced queries
+            parsed_plan = await parse_query_to_plan(query)
+            logging.info(f"Advanced query plan: {parsed_plan}")
+            
+            # Create WazuhSearchPlan from parsed data
+            try:
+                plan = WazuhSearchPlan(**parsed_plan)
+            except ValidationError as e:
+                logging.error(f"Invalid search plan: {e}")
+                raise HTTPException(status_code=400, detail=f"Invalid query structure: {str(e)}")
+            
+            # Validate plan
+            if not is_index_allowed(plan.indices):
+                raise HTTPException(400, "Index not allowed")
+            if not enforce_time_window(plan.time.from_, plan.time.to):
+                raise HTTPException(400, "Time window too large or invalid")
+            
+            try:
+                validate_filters(plan.filters or [])
+                validate_filters(plan.must_not or [])
+            except Exception as e:
+                raise HTTPException(400, f"Invalid filters: {str(e)}")
+            
+            # Build DSL query
+            dsl_query = build_dsl(plan)
+            logging.info(f"Generated DSL: {dsl_query}")
+            
+            # Execute query
+            raw_results = execute_query(plan.indices, dsl_query)
+            logging.info(f"Query results: {raw_results.get('hits', {}).get('total', 0)} hits")
+            
+            # Format results
+            formatted_response = await format_results(query, raw_results)
+            
+            return {
+                "success": True,
+                "routing": routing,
+                "pipeline": pipeline,
+                "parsed_query": parsed_plan,
+                "summary": formatted_response,
+                "raw_data": raw_results,
+                "dsl": dsl_query
+            }
+        
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unknown pipeline: {pipeline}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception("Unified NL query failed")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+
+@app.post("/query/dsl")
+async def query_direct_dsl(data: dict):
+    """
+    Direct DSL query endpoint for advanced users.
+    Accepts raw OpenSearch DSL queries.
+    
+    Example: {"index": "wazuh-alerts-*", "query": {...}, "size": 50, "sort": [...]}
+    """
+    index = data.get("index", "wazuh-alerts-*")
+    
+    # Extract the query body (everything except 'index')
+    # User can send either:
+    # 1. Full body with query, size, sort: {"index": "...", "query": {...}, "size": 50, "sort": [...]}
+    # 2. Just query: {"index": "...", "query": {...}}
+    dsl_body = {k: v for k, v in data.items() if k != "index"}
+    
+    # If user only provided "query" key, that's the body
+    # If user provided query + size + sort, use all of it
+    if not dsl_body or (len(dsl_body) == 1 and "query" not in dsl_body):
+        raise HTTPException(status_code=400, detail="DSL query body cannot be empty")
+    
+    try:
+        # Validate index
+        if not is_index_allowed(index):
+            raise HTTPException(400, "Index not allowed")
+        
+        # Execute the DSL query directly
+        raw_results = execute_query(index, dsl_body)
+        logging.info(f"Direct DSL results: {raw_results.get('hits', {}).get('total', 0)} hits")
+        
+        return {
+            "success": True,
+            "pipeline": "DIRECT_DSL",
+            "raw_data": raw_results,
+            "dsl": dsl_body
+        }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception("Direct DSL query failed")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
 
 async def connect_to_wazuh():
     # Build full URL properly
