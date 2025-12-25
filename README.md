@@ -1,4 +1,4 @@
-  # 🛡️ Wazuh MCP Server
+# 🛡️ Wazuh MCP Server
 
   > **Natural Language Security Operations Platform**  
   > Transform your Wazuh deployment into an AI-powered security assistant. Ask questions in plain English, get intelligent security insights powered by GPT-4o.
@@ -47,26 +47,6 @@
   # Docs:     http://localhost:8000/docs
   ```
 
-  ### Development Setup
-
-  ```bash
-  # Setup Python environment
-  python3.13 -m venv .venv
-  source .venv/bin/activate
-  pip install -r requirements.txt
-
-  # Configure
-  cp .env.example .env
-  nano .env  # Add credentials
-
-  # Start backend
-  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-  # Open frontend in browser
-  open frontend/index.html
-  ```
-
-  ---
 
   ## ✨ Features
 
@@ -99,18 +79,9 @@
   - **Query history**: Track your investigations
   - **Dark mode ready**: Eye-friendly interface
 
-  ### 🔒 Enterprise Security
-  - **Index allowlist**: Restrict searchable indices
-  - **Field allowlist**: Control exposed data fields
-  - **Time-based limits**: Prevent excessive historical queries
-  - **SSL/TLS support**: Secure communications
-  - **Docker isolation**: Network-level security
 
   ### 🐳 Production Ready
   - **Docker Compose setup**: One-command deployment
-  - **HTTPS out of the box**: Auto-generated SSL certificates
-  - **Health checks**: Automatic restart on failure
-  - **Logging**: Comprehensive request/error logging
   - **Scalable**: Works with single-node or multi-node Wazuh
 
   ---
@@ -191,22 +162,7 @@
 
   📖 **Documentation**: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md), [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
 
-  ### 2. Development Setup
-
-  **Best for**: Local development, testing, debugging
-
-  ```bash
-  python -m venv .venv
-  source .venv/bin/activate
-  pip install -r requirements.txt
-  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-  ```
-
-  📖 **Documentation**: [DOCUMENTATION.md](DOCUMENTATION.md#development)
-
-  ### 3. Multi-Wazuh Environments
-
-  **Best for**: Dev/Staging/Prod separation
+### 2. Multi-Wazuh Environments
 
   ```bash
   # Configure for each environment
