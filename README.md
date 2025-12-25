@@ -315,14 +315,6 @@ OPENSEARCH_PASS=your-indexer-password
 
 **Note**: Use Docker service names (e.g., `wazuh.manager`, `wazuh.indexer`) instead of localhost or IP addresses. Find your network name with `docker network ls`.
 
-  ## 🛡️ Security
-
-  - ✅ Index allowlist validation
-  - ✅ Time window limits (max 90 days)
-  - ✅ Filter validation
-  - ✅ SSH tunnel support
-  - ✅ No hardcoded credentials
-  - ✅ HTTPS support
 
   **⚠️ Production Checklist**: See [DOCUMENTATION.md](DOCUMENTATION.md#security) for hardening guide.
 
