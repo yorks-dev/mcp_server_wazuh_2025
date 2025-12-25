@@ -5,11 +5,36 @@ from .schemas import FilterItem
 
 # simple field->type mapping (in a real deploy populate using index mappings)
 FIELD_TYPES = {
+    # Rule fields
     "rule.id": "keyword",
     "rule.level": "integer",
+    "rule.description": "text",
+    "rule.mitre.technique": "keyword",
+    "rule.mitre.tactic": "keyword",
+    # Agent fields
     "agent.name": "keyword",
+    "agent.id": "keyword",
+    "agent.ip": "ip",
+    "agent.os.platform": "keyword",
+    # Data fields
     "data.srcip": "ip",
+    "data.dstip": "ip",
+    "data.srcuser": "keyword",
+    "data.dstuser": "keyword",
+    "data.srcport": "integer",
+    "data.dstport": "integer",
+    "data.protocol": "keyword",
+    "data.win.eventdata.targetUserName": "keyword",
+    "data.win.system.eventID": "keyword",
+    "data.win.system.channel": "keyword",
+    # Decoder fields
+    "decoder.name": "keyword",
+    "decoder.parent": "keyword",
+    # Other fields
     "@timestamp": "date",
+    "timestamp": "date",
+    "location": "keyword",
+    "full_log": "text",
     "manager.name": "keyword",
     "vulnerability.severity": "keyword",
 }

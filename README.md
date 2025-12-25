@@ -1,53 +1,253 @@
 # Wazuh MCP Server
 
-A Model Context Protocol (MCP) server for Wazuh SIEM integration with natural language query capabilities powered by GPT-4o.
+> **Natural Language Security Operations Platform**  
+> Ask questions in plain English, get intelligent security insights powered by GPT-4o
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
+[![GPT-4o](https://img.shields.io/badge/GPT--4o-Powered-orange.svg)](https://openai.com/)
+[![Wazuh](https://img.shields.io/badge/Wazuh-4.x-blue.svg)](https://wazuh.com/)
+
+---
 
 ## 🚀 Quick Start
 
 ```bash
-# Clone and setup
-cd mcp_server_wazuh_2025
+# Setup environment
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Configure environment
+# Configure (edit .env with your credentials)
 cp .env.example .env
-# Edit .env with your credentials
 
-# Start development server
-./scripts/dev_start.sh
+# Start server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Setup SSH tunnel for remote Wazuh (if needed)
+./scripts/setup_dev_tunnel.sh
 ```
 
-Server runs at `http://localhost:8000` with API docs at `/docs`
+**Access**:
+- API: http://localhost:8000
+- Docs: http://localhost:8000/docs
+- Frontend: Open `frontend/index.html`
 
 ---
 
-## 📋 Features
+## ✨ Features
 
-### Three Query Approaches
+- 🤖 **Natural Language Queries** - Ask questions in plain English
+- 🎯 **Intelligent Routing** - AI chooses optimal pipeline automatically
+- 🔬 **Hybrid NL+DSL** - Combine natural language context with direct queries
+- 📊 **GPT-4o Summaries** - AI-generated security insights with markdown formatting
+- 🎨 **Modern Web UI** - Beautiful, responsive interface
+- 🔒 **Secure** - SSH tunnel support, index allowlist, time limits
 
-1. **Simple Natural Language** - Basic queries via Wazuh API
-   - `POST /query/simple`
-   - Best for: Quick agent status, simple questions
-   - No OpenSearch required
+---
 
-2. **Advanced Natural Language** - Complex queries with DSL
-   - `POST /query/`
-   - Best for: Time ranges, filtering, aggregations
-   - Full NL → GPT-4o → DSL → Wazuh Indexer pipeline
+## 📖 Documentation
 
-3. **Pre-built DSL** - Direct OpenSearch queries
-   - `POST /mcp/wazuh.search`
-   - Best for: Programmatic access, automation
-   - Fastest response time
+**[→ Read Complete Documentation (DOCUMENTATION.md)](DOCUMENTATION.md)**
+
+The complete documentation includes:
+- Detailed architecture diagrams
+- All API endpoints with examples
+- Query method comparisons
+- GPT summarization guide
+- Frontend features
+- Testing guide
+- Configuration options
+- Security checklist
+- Troubleshooting
+- Development guide
+
+---
+
+## 🎯 Example Queries
+
+**Natural Language**:
+```bash
+curl -X POST http://localhost:8000/query/nl \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Show me critical alerts from the last hour"}'
+```
+
+**Direct DSL**:
+```bash
+curl -X POST http://localhost:8000/query/dsl \
+  -H "Content-Type: application/json" \
+  -d '{
+    "index": "wazuh-alerts-*",
+    "query": {"bool": {"must": [{"range": {"rule.level": {"gte": 12}}}]}},
+    "size": 50
+  }'
+```
+
+**Hybrid NL+DSL**:
+```bash
+curl -X POST http://localhost:8000/query/nl \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Analyze security issues: {\"index\":\"wazuh-alerts-*\",\"query\":{\"match_all\":{}}}"}'
+```
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐
+User Query → Frontend → FastAPI → GPT-4o Router
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                 ▼
+              Simple Pipeline   Advanced Pipeline   Direct DSL
+              (Wazuh API)       (Parse→DSL)        (Execute DSL)
+                    │                 │                 │
+                    └────────┬────────┴─────────────────┘
+                             ▼
+                      Wazuh Manager + Indexer
+                             │
+                             ▼
+                      GPT-4o Summary → Frontend
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+./tests/test_queries.py
+
+# Run specific test suite
+./tests/test_mcp_cases.py      # 5/5 passing
+./tests/test_advanced_dsl.py   # 5/5 passing
+
+# Performance diagnostics
+./tests/diagnose_timeout.py
+```
+
+---
+
+## 🔧 Configuration
+
+Edit `.env`:
+
+```bash
+# Required
+OPENAI_API_KEY=sk-your-key-here
+WAZUH_API_HOST=https://your-wazuh-server
+WAZUH_API_PORT=55000
+WAZUH_API_USERNAME=admin
+WAZUH_API_PASSWORD=your-password
+OPENSEARCH_HOST=https://localhost:9200
+OPENSEARCH_USER=admin
+OPENSEARCH_PASS=your-indexer-password
+```
+
+For remote Wazuh, configure SSH tunnel in `scripts/setup_dev_tunnel.sh`:
+
+```bash
+VM_IP="10.21.232.103"
+VM_USER="waserver"
+```
+
+---
+
+## 🛡️ Security
+
+- ✅ Index allowlist validation
+- ✅ Time window limits (max 90 days)
+- ✅ Filter validation
+- ✅ SSH tunnel support
+- ✅ No hardcoded credentials
+- ✅ HTTPS support
+
+**⚠️ Production Checklist**: See [DOCUMENTATION.md](DOCUMENTATION.md#security) for hardening guide.
+
+---
+
+## 📁 Project Structure
+
+```
+mcp_server_wazuh_2025/
+├── app/                    # Backend (FastAPI)
+│   ├── main.py            # Main application
+│   ├── llm_client.py      # GPT-4o integration
+│   └── ...
+├── frontend/              # Web UI
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── mcp/                   # MCP protocol handlers
+├── scripts/               # Utility scripts
+├── tests/                 # Test suites
+├── .env                   # Configuration
+├── requirements.txt       # Dependencies
+├── DOCUMENTATION.md       # Complete docs (read this!)
+└── README.md             # This file
+```
+
+---
+
+## 🚨 Troubleshooting
+
+**Connection refused on port 9200?**
+```bash
+./scripts/setup_dev_tunnel.sh
+```
+
+**OpenAI rate limit?**
+- Wait 60 seconds or set `include_summary: false`
+
+**Wazuh auth failed?**
+- Check credentials in `.env`
+
+**Frontend blank?**
+- Check `curl http://localhost:8000/health`
+- Check browser console for errors
+
+See [DOCUMENTATION.md#troubleshooting](DOCUMENTATION.md#troubleshooting) for detailed solutions.
+
+---
+
+## 📊 Status
+
+- **Backend**: ✅ Running on port 8000
+- **Frontend**: ✅ Open `frontend/index.html`
+- **Tests**: ✅ 21/22 passing (95%)
+- **Documentation**: ✅ Consolidated in DOCUMENTATION.md
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Make changes and add tests
+4. Commit (`git commit -m 'feat: Add amazing feature'`)
+5. Push and create Pull Request
+
+---
+
+## 📜 License
+
+MIT License - See LICENSE file for details
+
+---
+
+## 📚 Resources
+
+- **Complete Documentation**: [DOCUMENTATION.md](DOCUMENTATION.md)
+- **API Docs**: http://localhost:8000/docs
+- **Wazuh Docs**: https://documentation.wazuh.com/
+- **OpenAI API**: https://platform.openai.com/docs
+
+---
+
+**Version**: 2.0  
+**Last Updated**: December 25, 2025  
+**Maintainer**: Wazuh MCP Team
 │  Operator   │ "Show me high severity alerts from last 24h"
 └──────┬──────┘
        │

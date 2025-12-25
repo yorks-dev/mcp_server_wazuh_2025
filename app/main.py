@@ -269,16 +269,107 @@ async def query_natural_language_unified(data: dict):
     Unified Natural Language query endpoint with intelligent routing.
     GPT-4o automatically decides between SIMPLE_PIPELINE and ADVANCED_PIPELINE.
     
+    Supports:
+    1. Pure NL: "Show me failed logins" → GPT routes & executes
+    2. Hybrid NL+DSL: "Analyze this query: {DSL}" → GPT provides insights on DSL results
+    3. GPT automatically routes to appropriate pipeline
+    
     Example: {"query": "Show me all agents"}
     """
     from .llm_client import route_query, parse_simple_query, parse_query_to_plan, format_results
+    import re
+    import json
+    import time
     
     query = data.get("query", "").strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     try:
-        # Step 1: Route the query
+        # Check if query contains embedded DSL
+        embedded_dsl = None
+        nl_context = query
+        
+        # Try to extract JSON from the query
+        json_match = re.search(r'\{[\s\S]*\}', query)
+        if json_match:
+            try:
+                potential_dsl = json.loads(json_match.group(0))
+                # Validate it looks like a DSL query
+                if "query" in potential_dsl or "index" in potential_dsl or "indices" in potential_dsl:
+                    embedded_dsl = potential_dsl
+                    # Extract the NL part (text before/after the JSON)
+                    nl_context = query[:json_match.start()].strip() + " " + query[json_match.end():].strip()
+                    nl_context = nl_context.strip() or "Analyze these query results"
+                    logging.info("✓ Detected embedded DSL in NL query")
+                    logging.info(f"NL Context: {nl_context}")
+                    logging.info(f"Embedded DSL: {json.dumps(embedded_dsl, indent=2)}")
+            except json.JSONDecodeError:
+                # Not valid JSON, treat as pure NL
+                pass
+        
+        # If embedded DSL found, execute it directly with NL insights
+        if embedded_dsl:
+            logging.info("=== Executing Hybrid NL+DSL Query ===")
+            
+            start_time = time.time()
+            
+            # Extract index
+            index = embedded_dsl.get("index") or embedded_dsl.get("indices", "wazuh-alerts-*")
+            dsl_body = {k: v for k, v in embedded_dsl.items() if k not in ["index", "indices"]}
+            
+            # Validate index
+            if not is_index_allowed(index):
+                raise HTTPException(400, "Index not allowed")
+            
+            # Execute the DSL query
+            logging.info(f"Executing DSL on index: {index}")
+            raw_results = execute_query(index, dsl_body)
+            
+            execution_time = time.time() - start_time
+            
+            # Extract hit count
+            hits = raw_results.get("hits", {})
+            total_hits = hits.get("total", {})
+            if isinstance(total_hits, dict):
+                total_count = total_hits.get("value", 0)
+            else:
+                total_count = total_hits
+            
+            logging.info(f"✓ DSL executed in {execution_time:.2f}s, found {total_count} results")
+            
+            # Generate AI insights based on NL context
+            logging.info("=== Generating AI Insights ===")
+            start_format = time.time()
+            
+            # Use the NL context to guide the formatting
+            formatted_response = await format_results(nl_context, raw_results)
+            
+            format_time = time.time() - start_format
+            logging.info(f"✓ Insights generated in {format_time:.2f}s")
+            
+            return {
+                "pipeline": "HYBRID_NL_DSL",
+                "query": query,
+                "nl_context": nl_context,
+                "embedded_dsl": embedded_dsl,
+                "success": True,
+                "total_hits": total_count,
+                "query_time": f"{execution_time:.2f}s",
+                "format_time": f"{format_time:.2f}s",
+                "summary": formatted_response,
+                "formatted_response": formatted_response,
+                "raw_data": raw_results,
+                "raw_results": raw_results,
+                "dsl": dsl_body,
+                "routing": {
+                    "pipeline": "HYBRID_NL_DSL",
+                    "confidence": 1.0,
+                    "reasoning": "Embedded DSL query detected with natural language context for insights"
+                }
+            }
+        
+        # Step 1: Route the query (pure NL)
         routing = await route_query(query)
         pipeline = routing["pipeline"]
         logging.info(f"Routing decision: {pipeline} (confidence: {routing['confidence']})")
@@ -344,8 +435,11 @@ async def query_natural_language_unified(data: dict):
             
         elif pipeline == "ADVANCED_PIPELINE":
             # Use Elasticsearch/OpenSearch Indexer for advanced queries
-            parsed_plan = await parse_query_to_plan(query)
-            logging.info(f"Advanced query plan: {parsed_plan}")
+            import time
+            parse_start = time.time()
+            parsed_plan = await parse_query_to_plan(query, wazuh_client)
+            parse_time = time.time() - parse_start
+            logging.info(f"Advanced query plan (parse took {parse_time:.2f}s): {parsed_plan}")
             
             # Create WazuhSearchPlan from parsed data
             try:
@@ -371,11 +465,17 @@ async def query_natural_language_unified(data: dict):
             logging.info(f"Generated DSL: {dsl_query}")
             
             # Execute query
+            query_start = time.time()
             raw_results = execute_query(plan.indices, dsl_query)
-            logging.info(f"Query results: {raw_results.get('hits', {}).get('total', 0)} hits")
+            query_time = time.time() - query_start
+            total_hits = raw_results.get('hits', {}).get('total', 0)
+            logging.info(f"Query results: {total_hits} hits (query took {query_time:.2f}s)")
             
             # Format results
+            format_start = time.time()
             formatted_response = await format_results(query, raw_results)
+            format_time = time.time() - format_start
+            logging.info(f"Results formatted (took {format_time:.2f}s)")
             
             return {
                 "success": True,
@@ -403,21 +503,21 @@ async def query_natural_language_unified(data: dict):
 @app.post("/query/dsl")
 async def query_direct_dsl(data: dict):
     """
-    Direct DSL query endpoint for advanced users.
+    Direct DSL query endpoint for advanced users with optional LLM summarization.
     Accepts raw OpenSearch DSL queries.
     
-    Example: {"index": "wazuh-alerts-*", "query": {...}, "size": 50, "sort": [...]}
+    Example: {"index": "wazuh-alerts-*", "query": {...}, "size": 50, "sort": [...], "include_summary": true}
     """
+    from .llm_client import format_results
+    import time
+    import json
+    
     index = data.get("index", "wazuh-alerts-*")
+    include_summary = data.get("include_summary", True)  # Default to true
     
-    # Extract the query body (everything except 'index')
-    # User can send either:
-    # 1. Full body with query, size, sort: {"index": "...", "query": {...}, "size": 50, "sort": [...]}
-    # 2. Just query: {"index": "...", "query": {...}}
-    dsl_body = {k: v for k, v in data.items() if k != "index"}
+    # Extract the query body (everything except 'index' and 'include_summary')
+    dsl_body = {k: v for k, v in data.items() if k not in ["index", "include_summary"]}
     
-    # If user only provided "query" key, that's the body
-    # If user provided query + size + sort, use all of it
     if not dsl_body or (len(dsl_body) == 1 and "query" not in dsl_body):
         raise HTTPException(status_code=400, detail="DSL query body cannot be empty")
     
@@ -427,15 +527,76 @@ async def query_direct_dsl(data: dict):
             raise HTTPException(400, "Index not allowed")
         
         # Execute the DSL query directly
+        start_time = time.time()
         raw_results = execute_query(index, dsl_body)
-        logging.info(f"Direct DSL results: {raw_results.get('hits', {}).get('total', 0)} hits")
+        execution_time = time.time() - start_time
         
-        return {
+        # Extract hit count
+        hits = raw_results.get("hits", {})
+        total_hits = hits.get("total", {})
+        if isinstance(total_hits, dict):
+            total_count = total_hits.get("value", 0)
+        else:
+            total_count = total_hits
+        
+        documents = hits.get("hits", [])
+        
+        logging.info(f"Direct DSL results: {total_count} hits (executed in {execution_time:.2f}s)")
+        
+        response_data = {
             "success": True,
             "pipeline": "DIRECT_DSL",
+            "query_time": f"{execution_time:.2f}s",
+            "total_hits": total_count,
+            "returned_count": len(documents),
             "raw_data": raw_results,
+            "raw_results": raw_results,
             "dsl": dsl_body
         }
+        
+        # Add GPT summarization if requested
+        if include_summary and documents:
+            try:
+                logging.info("Generating natural language summary for DSL query...")
+                
+                # Create a simple query context from the DSL
+                query_context = f"User executed a direct DSL query on index '{index}'"
+                
+                # Add filter context
+                if "query" in dsl_body and "bool" in dsl_body["query"]:
+                    must_filters = dsl_body["query"]["bool"].get("must", [])
+                    if must_filters:
+                        query_context += " with filters: "
+                        filter_descriptions = []
+                        for f in must_filters:
+                            if "range" in f:
+                                field = list(f["range"].keys())[0]
+                                filter_descriptions.append(f"{field} time range")
+                            elif "term" in f:
+                                field = list(f["term"].keys())[0]
+                                value = f["term"][field]
+                                filter_descriptions.append(f"{field}={value}")
+                            elif "terms" in f:
+                                field = list(f["terms"].keys())[0]
+                                filter_descriptions.append(f"{field} in list")
+                        query_context += ", ".join(filter_descriptions)
+                
+                # Format results with GPT
+                start_format = time.time()
+                summary = await format_results(query_context, raw_results)
+                format_time = time.time() - start_format
+                
+                response_data["summary"] = summary
+                response_data["formatted_response"] = summary
+                response_data["format_time"] = f"{format_time:.2f}s"
+                logging.info(f"Summary generated successfully in {format_time:.2f}s")
+                
+            except Exception as summary_error:
+                logging.warning(f"Failed to generate summary: {summary_error}")
+                response_data["summary"] = None
+                response_data["summary_error"] = str(summary_error)
+        
+        return response_data
             
     except HTTPException:
         raise

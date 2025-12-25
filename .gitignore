@@ -221,3 +221,5 @@ __marimo__/
 **/*.rs.bk
 Cargo.lock
 .env
+.env.bkp
+.env.backup

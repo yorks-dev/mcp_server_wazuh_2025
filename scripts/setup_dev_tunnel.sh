@@ -10,8 +10,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-VM_IP="10.21.236.157"
-VM_USER="hpotwazuh"
+# VM_IP="10.21.236.157"
+# VM_USER="hpotwazuh"
+
+VM_IP="10.21.232.103"
+VM_USER="waserver"
 
 echo -e "\n${YELLOW}Setting up SSH tunnel to Wazuh Indexer...${NC}"
 echo "This will forward VM's localhost:9200 to your Mac's localhost:9200"

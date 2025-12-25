@@ -5,6 +5,42 @@ const API_BASE_URL = 'http://localhost:8000';
 let currentPipeline = 'nl';
 let lastQueryResult = null;
 
+// Markdown to HTML converter (simple implementation)
+function markdownToHtml(markdown) {
+    if (!markdown) return '';
+    
+    let html = markdown
+        // Escape HTML first
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Headers
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Lists (bullets)
+        .replace(/^\s*[-*]\s+(.*)$/gm, '<li>$1</li>')
+        // Code blocks
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Line breaks
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    
+    // Wrap lists in <ul>
+    html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+    
+    // Wrap in paragraph if not already wrapped
+    if (!html.startsWith('<h') && !html.startsWith('<ul') && !html.startsWith('<pre')) {
+        html = '<p>' + html + '</p>';
+    }
+    
+    return html;
+}
+
 // DOM Elements
 const pipelineBtns = document.querySelectorAll('.pipeline-btn');
 const nlQueryContainer = document.getElementById('nlQueryContainer');
@@ -216,7 +252,16 @@ async function executeQuery() {
         hideAllStates();
         errorState.classList.remove('hidden');
         errorState.style.display = 'block';
-        errorMessage.textContent = error.message;
+        
+        let errorText = error.message;
+        if (error.message.includes('HTTP')) {
+            errorText += '\n\nPossible causes:\n';
+            errorText += '- Invalid field names in query\n';
+            errorText += '- Time window too large\n';
+            errorText += '- Authentication failed\n';
+            errorText += '\nCheck server logs for details.';
+        }
+        errorMessage.textContent = errorText;
     }
 }
 
@@ -229,9 +274,15 @@ function displayResults(result, executionTimeMs) {
 
     // Update stats - handle both Indexer and API responses
     let totalHits = 0;
-    if (result.raw_data?.hits?.total) {
+    if (result.total_hits !== undefined) {
+        // Direct from response
+        totalHits = result.total_hits;
+    } else if (result.raw_data?.hits?.total) {
         // Indexer response
         totalHits = result.raw_data.hits.total.value || result.raw_data.hits.total;
+    } else if (result.raw_results?.hits?.total) {
+        // Alternative Indexer response
+        totalHits = result.raw_results.hits.total.value || result.raw_results.hits.total;
     } else if (result.raw_data?.data?.affected_items) {
         // Wazuh API response
         totalHits = result.raw_data.data.affected_items.length;
@@ -239,25 +290,109 @@ function displayResults(result, executionTimeMs) {
         // Alternative format
         totalHits = result.raw_data.total;
     }
+
+    resultCount.textContent = `${totalHits} results`;
+    executionTime.textContent = result.query_time || `${executionTimeMs}ms`;
+
+    // Show routing information
+    if (result.routing) {
+        displayRoutingInfo(result.routing);
+    } else if (result.pipeline === 'DIRECT_DSL') {
+        displayRoutingInfo({
+            pipeline: 'DIRECT_DSL',
+            confidence: 1.0,
+            reasoning: 'Direct DSL query executed without routing'
+        });
+    } else if (result.pipeline === 'HYBRID_NL_DSL') {
+        displayRoutingInfo({
+            pipeline: 'HYBRID_NL_DSL',
+            confidence: 1.0,
+            reasoning: result.routing?.reasoning || 'Embedded DSL with natural language context'
+        });
+    }
+
+    // Show NL context for hybrid queries
+    if (result.pipeline === 'HYBRID_NL_DSL' && result.nl_context) {
+        const existingRoutingDiv = document.querySelector('.routing-info');
+        
+        // Remove any existing NL context display
+        const existingContext = document.querySelector('.nl-context-section');
+        if (existingContext) {
+            existingContext.remove();
+        }
+        
+        const nlContextDiv = document.createElement('div');
+        nlContextDiv.className = 'nl-context-section';
+        nlContextDiv.innerHTML = `
+            <strong>📝 Natural Language Context:</strong>
+            <p>${result.nl_context}</p>
+        `;
+        
+        if (existingRoutingDiv && existingRoutingDiv.nextSibling) {
+            existingRoutingDiv.parentNode.insertBefore(nlContextDiv, existingRoutingDiv.nextSibling);
+        } else if (existingRoutingDiv) {
+            existingRoutingDiv.after(nlContextDiv);
+        }
+    }
+
+    // Show summary/natural language response
+    if (result.summary || result.formatted_response) {
+        nlResponse.classList.remove('hidden');
+        nlResponse.style.display = 'block';
+        nlResponseText.innerHTML = markdownToHtml(result.summary || result.formatted_response);
+    } else {
+        nlResponse.classList.add('hidden');
+        nlResponse.style.display = 'none';
+    }
     
     resultCount.textContent = totalHits;
     executionTime.textContent = `${executionTimeMs}ms`;
 
-    // Display routing information (for NL queries)
+    // Display routing information
     if (result.routing) {
-        const routingHTML = `
-            <div class="routing-badge">
-                <span class="badge badge-${result.routing.pipeline === 'SIMPLE_PIPELINE' ? 'primary' : 'success'}">
-                    ${result.routing.pipeline === 'SIMPLE_PIPELINE' ? '🔍 Simple Query' : '🚀 Advanced Query'}
-                </span>
-                <span class="confidence-badge">
-                    Confidence: ${(result.routing.confidence * 100).toFixed(0)}%
-                </span>
+        const pipelineMap = {
+            'SIMPLE_PIPELINE': { name: 'Simple', icon: '🔍', color: 'primary' },
+            'ADVANCED_PIPELINE': { name: 'Advanced', icon: '🚀', color: 'success' },
+            'DIRECT_DSL': { name: 'Direct DSL', icon: '⚡', color: 'warning' },
+            'HYBRID_NL_DSL': { name: 'Hybrid NL+DSL', icon: '🔬', color: 'info' }
+        };
+        
+        const pipeline = result.routing.pipeline || result.pipeline;
+        const pipelineInfo = pipelineMap[pipeline] || { name: pipeline, icon: '❓', color: 'secondary' };
+        const confidencePercent = (result.routing.confidence * 100).toFixed(0);
+        
+        let routingHTML = `
+            <div class="routing-header">
+                <div class="routing-badge">
+                    <span class="badge badge-${pipelineInfo.color}">
+                        ${pipelineInfo.icon} ${pipelineInfo.name} Pipeline
+                    </span>
+                    <span class="confidence-badge" style="background: ${confidencePercent >= 90 ? '#10b981' : confidencePercent >= 70 ? '#f59e0b' : '#ef4444'}">
+                        ${confidencePercent}% Confidence
+                    </span>
+                </div>
             </div>
-            <div class="routing-reason">
-                <strong>Routing Reason:</strong> ${result.routing.reasoning}
-            </div>
-        `;
+            <div class="routing-details">
+                <div class="routing-reason">
+                    <strong>📋 Routing Reason:</strong> ${result.routing.reasoning}
+                </div>`;
+        
+        // Show parsed query details for advanced pipeline
+        if (result.parsed_query && pipeline === 'ADVANCED_PIPELINE') {
+            const pq = result.parsed_query;
+            routingHTML += `
+                <div class="parsed-query-info">
+                    <strong>🔧 Query Details:</strong>
+                    <ul>
+                        ${pq.filters && pq.filters.length > 0 ? `<li>Filters: ${pq.filters.length} active</li>` : ''}
+                        ${pq.time ? `<li>Time: ${pq.time.from} to ${pq.time.to}</li>` : ''}
+                        ${pq.limit ? `<li>Limit: ${pq.limit} results</li>` : ''}
+                        ${pq.aggregation ? `<li>Aggregation: ${pq.aggregation.type}</li>` : ''}
+                    </ul>
+                </div>`;
+        }
+        
+        routingHTML += `</div>`;
         routingInfo.innerHTML = routingHTML;
         routingInfo.style.display = 'block';
     } else {
@@ -267,7 +402,7 @@ function displayResults(result, executionTimeMs) {
     // Natural language summary (for NL queries)
     if (result.summary) {
         nlResponse.style.display = 'block';
-        nlResponseText.textContent = result.summary;
+        nlResponseText.innerHTML = markdownToHtml(result.summary);
     } else {
         nlResponse.style.display = 'none';
     }
@@ -351,6 +486,45 @@ function displayFormattedData(rawData) {
     }
 
     return html;
+}
+
+// Display routing information
+function displayRoutingInfo(routing) {
+    if (!routingInfo) return;
+
+    const pipelineMap = {
+        'SIMPLE_PIPELINE': { name: 'Simple (Wazuh API)', icon: '🔍', color: 'primary' },
+        'ADVANCED_PIPELINE': { name: 'Advanced (Wazuh Indexer)', icon: '🚀', color: 'success' },
+        'DIRECT_DSL': { name: 'Direct DSL (No Routing)', icon: '⚡', color: 'warning' },
+        'HYBRID_NL_DSL': { name: 'Hybrid NL+DSL (AI Analysis)', icon: '🔬', color: 'info' }
+    };
+
+    const pipeline = routing.pipeline;
+    const pipelineInfo = pipelineMap[pipeline] || { name: pipeline, icon: '❓', color: 'secondary' };
+    const confidence = routing.confidence || 0;
+    const confidencePercent = Math.round(confidence * 100);
+    
+    // Determine confidence color
+    let confidenceColor = '#ef4444'; // red
+    if (confidencePercent >= 90) confidenceColor = '#10b981'; // green
+    else if (confidencePercent >= 70) confidenceColor = '#f59e0b'; // yellow
+
+    routingInfo.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div>
+                <span style="font-size: 1.2em;">${pipelineInfo.icon}</span>
+                <strong>${pipelineInfo.name}</strong>
+            </div>
+            <span class="confidence-badge" style="background: ${confidenceColor}; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600; color: white;">
+                ${confidencePercent}% confidence
+            </span>
+        </div>
+        <div style="color: var(--text-secondary); font-size: 0.9em;">
+            ${routing.reasoning || 'No reasoning provided'}
+        </div>
+    `;
+    
+    routingInfo.style.display = 'block';
 }
 
 // Switch tab

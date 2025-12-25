@@ -327,6 +327,69 @@ textarea:focus {
 .nl-response p {
     line-height: 1.8;
     font-size: 1.05rem;
+    margin-bottom: 12px;
+}
+
+/* Markdown formatting in nl-response */
+.nl-response h1,
+.nl-response h2,
+.nl-response h3 {
+    color: var(--text-primary);
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.nl-response h1 {
+    font-size: 1.6rem;
+    border-bottom: 2px solid var(--success-color);
+    padding-bottom: 8px;
+}
+
+.nl-response h2 {
+    font-size: 1.4rem;
+    color: var(--success-color);
+}
+
+.nl-response h3 {
+    font-size: 1.2rem;
+}
+
+.nl-response strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.nl-response ul {
+    margin-left: 20px;
+    margin-bottom: 12px;
+}
+
+.nl-response li {
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+.nl-response code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    color: #60a5fa;
+}
+
+.nl-response pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+}
+
+.nl-response pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-secondary);
 }
 
 /* Tabs */
@@ -522,50 +585,146 @@ footer {
 .routing-info {
     background: var(--bg-tertiary);
     border-left: 4px solid var(--primary-color);
-    padding: 15px 20px;
+    padding: 20px;
     border-radius: 8px;
     margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.routing-header {
+    margin-bottom: 15px;
 }
 
 .routing-badge {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
 .badge {
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-radius: 6px;
     font-size: 0.875rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .badge-primary {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .badge-success {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .confidence-badge {
-    background: var(--bg-secondary);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 0.875rem;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.routing-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .routing-reason {
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    padding: 10px;
+    background: var(--bg-primary);
+    border-radius: 6px;
 }
 
 .routing-reason strong {
     color: var(--text-primary);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.parsed-query-info {
+    background: var(--bg-primary);
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 3px solid #10b981;
+}
+
+.parsed-query-info strong {
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.parsed-query-info ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.parsed-query-info li {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    padding-left: 20px;
+    position: relative;
+}
+
+.parsed-query-info li:before {
+    content: "•";
+    position: absolute;
+    left: 6px;
+    color: #10b981;
+    font-weight: bold;
+}
+
+/* Hybrid NL+DSL Styling */
+.nl-context-section {
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--primary-color);
+    padding: 12px 16px;
+    margin: 10px 0;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.nl-context-section strong {
+    color: var(--primary-color);
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.nl-context-section p {
+    margin: 5px 0 0 0;
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Confidence Badge Styling */
+.confidence-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }

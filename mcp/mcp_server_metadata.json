@@ -49,10 +49,10 @@
     "enabled": true,
     "level": "INFO",
     "file": "logs/mcp_wazuh_server.log"
-  }
+  },
 "schemas": {
   "alert_query": {
     "fields": ["agent_id", "severity", "limit"]
   }
-}
+}}
 

@@ -9,13 +9,38 @@ class Settings(BaseSettings):
     OPENSEARCH_PASS: str
     
     # Allowed indices and fields (configurable but have defaults)
-    INDEX_ALLOWLIST: List[str] = ["wazuh-alerts-*"]
+    INDEX_ALLOWLIST: List[str] = ["wazuh-alerts-*", "wazuh-archives-*"]
     FIELD_ALLOWLIST: List[str] = [
+        # Rule fields
         "rule.id",
         "rule.level",
+        "rule.description",
+        "rule.mitre.technique",
+        "rule.mitre.tactic",
+        # Agent fields
         "agent.name",
+        "agent.id",
+        "agent.ip",
+        "agent.os.platform",
+        # Data fields
         "data.srcip",
+        "data.dstip",
+        "data.srcuser",
+        "data.dstuser",
+        "data.srcport",
+        "data.dstport",
+        "data.protocol",
+        "data.win.eventdata.targetUserName",
+        "data.win.system.eventID",
+        "data.win.system.channel",
+        # Decoder fields
+        "decoder.name",
+        "decoder.parent",
+        # Other fields
         "@timestamp",
+        "timestamp",
+        "location",
+        "full_log",
         "manager.name",
         "vulnerability.severity",
     ]
