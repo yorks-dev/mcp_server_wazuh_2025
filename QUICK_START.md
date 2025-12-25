@@ -65,7 +65,7 @@ POST /query/nl
 
 | Problem | Solution |
 |---------|----------|
-| Port 9200 refused | `./scripts/setup_dev_tunnel.sh` |
+| Connection refused | Check `WAZUH_NETWORK` in `.env` matches `docker network ls` |
 | 401 Unauthorized | Check `.env` credentials |
 | 429 Rate limit | Wait 60s or `include_summary: false` |
 | Frontend blank | Check `curl localhost:8000/health` |

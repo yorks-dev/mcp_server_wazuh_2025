@@ -1,5 +1,7 @@
-// Configuration
-const API_BASE_URL = 'http://localhost:8000';
+// Configuration - Auto-detect if running in Docker or local dev
+const API_BASE_URL = window.location.hostname === 'localhost' && window.location.port !== '8443'
+    ? 'http://localhost:8000'  // Local development
+    : '/api';                   // Docker/Production (proxied by Nginx)
 
 // State
 let currentPipeline = 'nl';

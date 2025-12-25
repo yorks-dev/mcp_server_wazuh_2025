@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wazuh-mcp-server
+    hostname: mcp-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Wazuh API (use Docker service names on same network)
+      WAZUH_API_HOST: ${WAZUH_API_HOST:-https://wazuh.manager}
+      WAZUH_API_PORT: ${WAZUH_API_PORT:-55000}
+      WAZUH_API_USERNAME: ${WAZUH_API_USERNAME}
+      WAZUH_API_PASSWORD: ${WAZUH_API_PASSWORD}
+      
+      # Wazuh Indexer (use Docker service name)
+      OPENSEARCH_HOST: ${OPENSEARCH_HOST:-https://wazuh.indexer:9200}
+      OPENSEARCH_USER: ${OPENSEARCH_USER:-admin}
+      OPENSEARCH_PASS: ${OPENSEARCH_PASS}
+      
+      # Wazuh Indexer (required by config.py)
+      WAZUH_INDEXER_HOST: ${WAZUH_INDEXER_HOST:-https://wazuh.indexer}
+      WAZUH_INDEXER_PORT: ${WAZUH_INDEXER_PORT:-9200}
+      WAZUH_INDEXER_USERNAME: ${WAZUH_INDEXER_USERNAME:-admin}
+      WAZUH_INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+      
+      # SSL
+      WAZUH_VERIFY_SSL: ${WAZUH_VERIFY_SSL:-false}
+      
+      # OpenAI
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      - ${WAZUH_NETWORK:-multi-node_default}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mcp-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: wazuh-mcp-frontend
+    hostname: mcp-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"      # HTTP (redirects to HTTPS)
+      - "8443:443"     # HTTPS (avoids conflict with Wazuh Dashboard on 443)
+    networks:
+      - ${WAZUH_NETWORK:-multi-node_default}
+    depends_on:
+      - mcp-server
+    volumes:
+      # Mount custom SSL certificates (optional - for production)
+      - ./ssl/cert.crt:/etc/nginx/ssl/cert.crt:ro
+      - ./ssl/cert.key:/etc/nginx/ssl/cert.key:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "-q", "--no-check-certificate", "https://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Join the existing Wazuh Docker network (configurable via WAZUH_NETWORK env var)
+# Default: multi-node_default
+# Find your network: docker network ls
+networks:
+  multi-node_default:
+    external: true
+    name: ${WAZUH_NETWORK:-multi-node_default}
+
+volumes:
+  logs:

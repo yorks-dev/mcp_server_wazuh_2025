@@ -58,19 +58,16 @@
 🚀 QUICK START COMMANDS
 
   # Setup
-  source .venv/bin/activate
-  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  cp .env.example .env
+  nano .env  # Configure Wazuh credentials
 
-  # SSH Tunnel (if remote Wazuh)
-  ./scripts/setup_dev_tunnel.sh
-
-  # Run Tests
-  ./tests/test_queries.py
+  # Deploy with Docker
+  ./scripts/docker-deploy.sh
 
   # Access
-  http://localhost:8000       (API)
-  http://localhost:8000/docs  (Swagger)
-  frontend/index.html         (Web UI)
+  https://localhost:8443       (Frontend - HTTPS)
+  http://localhost:8000        (Backend API)
+  http://localhost:8000/docs   (API Documentation)
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -144,20 +141,22 @@
 
 🛠️ COMMON OPERATIONS
 
-  Start Server    : uvicorn app.main:app --reload
-  Setup Tunnel    : ./scripts/setup_dev_tunnel.sh
-  Run Tests       : ./tests/test_queries.py
-  Check Health    : curl http://localhost:8000/health
-  View Logs       : tail -f logs/app.log
+  Deploy          : ./scripts/docker-deploy.sh
+  View Logs       : ./scripts/docker-logs.sh
+  Stop Containers : ./scripts/docker-stop.sh
+  Rebuild         : ./scripts/docker-rebuild.sh
+  Check Status    : docker-compose ps
+  Run Tests       : docker-compose exec mcp-server python tests/test_queries.py
 
 ═══════════════════════════════════════════════════════════════════════════════
 
 💡 PRO TIPS
 
   • Use include_summary=false for faster DSL queries
-  • SSH tunnel required for remote Wazuh setups
+  • Set WAZUH_NETWORK in .env to match your Wazuh deployment
+  • Docker network name found with: docker network ls
   • GPT summaries are cached for 5 minutes
-  • Test files are in tests/ directory (organized)
+  • Frontend uses auto-generated SSL certificates
   • All old docs are in docs/archive/ (14 files)
 
 ═══════════════════════════════════════════════════════════════════════════════

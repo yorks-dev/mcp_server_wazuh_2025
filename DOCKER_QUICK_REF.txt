@@ -1,0 +1,139 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║              🐳 WAZUH MCP SERVER - DOCKER QUICK REF               ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📦 DEPLOYMENT
+─────────────
+  ./scripts/docker-deploy.sh       Deploy all services
+  ./scripts/docker-stop.sh          Stop all services
+  ./scripts/docker-logs.sh          View all logs
+  ./scripts/docker-rebuild.sh       Rebuild images
+
+🌐 ACCESS URLs
+─────────────
+  Wazuh Dashboard    https://localhost         (port 443)
+  MCP Frontend       https://localhost:8443    (port 8443)
+  MCP Frontend HTTP  http://localhost:8080     (→ 8443)
+  MCP API            http://localhost:8000
+  API Docs           http://localhost:8000/docs
+
+🔧 DOCKER COMPOSE COMMANDS
+───────────────────────────
+  docker-compose up -d              Start services
+  docker-compose down               Stop services
+  docker-compose ps                 Check status
+  docker-compose logs -f            View logs
+  docker-compose restart            Restart all
+  docker-compose build              Rebuild images
+  docker-compose exec mcp-server sh Enter container
+
+📊 STATUS & HEALTH
+──────────────────
+  docker-compose ps                 Container status
+  curl localhost:8000/health        API health
+  curl -k https://localhost:8443    Frontend check
+
+📝 LOGS
+───────
+  docker-compose logs -f                    All logs
+  docker-compose logs -f mcp-server         API logs
+  docker-compose logs -f mcp-frontend       Web logs
+  docker-compose logs --tail=100 mcp-server Last 100 lines
+
+🔄 UPDATES
+──────────
+  # Update backend code
+  docker-compose build mcp-server
+  docker-compose up -d mcp-server
+
+  # Update frontend
+  docker-compose build mcp-frontend
+  docker-compose up -d mcp-frontend
+
+  # Update all
+  docker-compose build && docker-compose up -d
+
+🐛 TROUBLESHOOTING
+──────────────────
+  # Container won't start
+  docker-compose logs mcp-server
+  
+  # Check ports
+  lsof -i :8000
+  lsof -i :8443
+  
+  # Test Wazuh connectivity
+  docker exec wazuh-mcp-server curl -k https://localhost:55000
+  
+  # Restart specific service
+  docker-compose restart mcp-server
+  
+  # Full reset
+  docker-compose down && docker-compose up -d
+
+🔒 SSL CERTIFICATES
+───────────────────
+  Development:  Auto-generated self-signed (browser warning expected)
+  Production:   Place certs in ssl/ directory:
+                • ssl/cert.crt
+                • ssl/cert.key
+                Then: docker-compose restart mcp-frontend
+
+📁 KEY FILES
+────────────
+  Dockerfile                  Backend image
+  docker-compose.yml          Multi-container config
+  .env                        Environment variables
+  frontend/Dockerfile         Frontend image
+  frontend/nginx.conf         Nginx configuration
+  frontend/default.conf       Site configuration
+
+🧪 TESTING
+──────────
+  # API health
+  curl http://localhost:8000/health
+  
+  # Natural language query
+  curl -X POST http://localhost:8000/query/nl \
+    -H "Content-Type: application/json" \
+    -d '{"query": "Show me all agents"}'
+  
+  # Frontend health
+  curl -k https://localhost:8443/health
+  
+  # Frontend via proxy
+  curl -k https://localhost:8443/api/health
+
+⚙️ CONFIGURATION
+────────────────
+  Edit .env file:
+  • WAZUH_API_USERNAME
+  • WAZUH_API_PASSWORD
+  • OPENSEARCH_USER
+  • OPENSEARCH_PASS
+  • OPENAI_API_KEY
+
+🚀 QUICK START
+──────────────
+  1. cp .env.example .env
+  2. nano .env  # Add credentials
+  3. ./scripts/docker-deploy.sh
+  4. Open https://localhost:8443
+
+📚 DOCUMENTATION
+────────────────
+  DOCKER_DEPLOYMENT.md      Complete Docker guide
+  DOCUMENTATION.md          Full technical docs
+  QUICK_START.md            Quick reference
+
+═══════════════════════════════════════════════════════════════════
+
+🎯 Common Tasks:
+
+  Start:        ./scripts/docker-deploy.sh
+  Stop:         ./scripts/docker-stop.sh
+  Logs:         ./scripts/docker-logs.sh
+  Rebuild:      ./scripts/docker-rebuild.sh
+  Status:       docker-compose ps
+
+═══════════════════════════════════════════════════════════════════

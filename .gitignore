@@ -59,9 +59,18 @@ cover/
 *.log
 server.log
 server_test.log
+logs/
 
-# SSH Tunnel
+# SSL Certificates (keep ssl/.gitkeep or ssl/README for directory structure)
+ssl/*.crt
+ssSSH Tunnel
 .ssh_tunnel.pid
+scripts/.ssh_tunnel.pid
+
+# Docker volumes and build cache
+docker-compose.override.yml
+.docker/
+ssl/private.*
 
 # OS
 db.sqlite3
@@ -143,7 +152,12 @@ celerybeat.pid
 # Environment Variables
 .env
 .env.backup
+.env.local
+.env.*.local
 .envrc
+
+# Docker environment files (keep docker/.env.example for reference)
+docker/.env
 
 # Virtual Environment
 .venv/
@@ -223,3 +237,8 @@ Cargo.lock
 .env
 .env.bkp
 .env.backup
+
+
+
+
+CONTRIBUTING.md

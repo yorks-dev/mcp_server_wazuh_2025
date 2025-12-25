@@ -56,80 +56,92 @@ A Model Context Protocol (MCP) server that bridges natural language queries with
 
 ### Prerequisites
 
-- Python 3.13+
-- Wazuh Manager (4.x+)
-- Wazuh Indexer (OpenSearch)
+- Docker & Docker Compose
+- Wazuh deployment (single-node or multi-node)
 - OpenAI API key
-- SSH access to Wazuh server (for remote setups)
+- Access to Wazuh API and Indexer
 
-### Installation
+### Docker Deployment (Recommended)
 
 ```bash
-# Clone repository
+# 1. Clone repository
+git clone <your-repo-url>
 cd mcp_server_wazuh_2025
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
+# 2. Configure environment
 cp .env.example .env
-nano .env  # Edit with your credentials
+nano .env  # Edit with your Wazuh credentials and OpenAI API key
+
+# 3. Deploy with Docker
+./scripts/docker-deploy.sh
+
+# 4. Access the application
+# Frontend: https://localhost:8443
+# API:      http://localhost:8000
+# Docs:     http://localhost:8000/docs
 ```
 
 ### Environment Configuration
 
 ```bash
 # .env file
+
+# OpenAI Configuration
 OPENAI_API_KEY=sk-your-key-here
 
 # Wazuh Manager API
-WAZUH_API_HOST=https://10.21.232.103
+WAZUH_API_HOST=https://your-wazuh-server
 WAZUH_API_PORT=55000
 WAZUH_API_USERNAME=admin
 WAZUH_API_PASSWORD=your-password
 
-# Wazuh Indexer (via SSH tunnel for remote)
-OPENSEARCH_HOST=https://localhost:9200
+# Wazuh Indexer (OpenSearch)
+WAZUH_INDEXER_HOST=wazuh.indexer
+WAZUH_INDEXER_PORT=9200
+WAZUH_INDEXER_USERNAME=admin
+WAZUH_INDEXER_PASSWORD=your-indexer-password
+
+# OpenSearch (legacy - same as indexer)
+OPENSEARCH_HOST=https://wazuh.indexer:9200
 OPENSEARCH_USER=admin
 OPENSEARCH_PASS=your-indexer-password
+
+# Docker Network (for multi-Wazuh environments)
+WAZUH_NETWORK=multi-node_default
 ```
 
-### Start Development Server
+### Docker Management
 
 ```bash
-# Option 1: Quick start script
-./scripts/dev_start.sh
+# Deploy/Start containers
+./scripts/docker-deploy.sh
 
-# Option 2: Manual start
+# View logs
+./scripts/docker-logs.sh
+
+# Stop containers
+./scripts/docker-stop.sh
+
+# Rebuild and restart
+./scripts/docker-rebuild.sh
+```
+
+### Development Setup (Alternative)
+
+For local development without Docker:
+
+```bash
+python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Setup SSH Tunnel (Remote Wazuh)
-
-If Wazuh is on a remote server:
-
-```bash
-# Automated setup
-./scripts/setup_dev_tunnel.sh
-
-# Manual setup
-ssh -f -N -L 9200:localhost:9200 user@remote-wazuh-server
-
-# Stop tunnel
-./scripts/stop_dev_tunnel.sh
 ```
 
 ### Access the Application
 
+- **Frontend**: https://localhost:8443 (HTTPS with auto-generated SSL)
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
-- **Frontend UI**: http://localhost:8080 (or open `frontend/index.html`)
 - **Health Check**: http://localhost:8000/health
 
 ---
@@ -140,20 +152,21 @@ ssh -f -N -L 9200:localhost:9200 user@remote-wazuh-server
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         User/Client                          │
+│                      User Browser (HTTPS)                    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      Frontend (Port 8080)                    │
+│            Frontend Container (Nginx - Port 8443)            │
 │  • Natural Language Input                                    │
 │  • DSL Query Editor                                          │
-│  • Results Display with Markdown Rendering                   │
+│  • Markdown Rendering                                        │
+│  • Auto-generated SSL/TLS                                    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Server (Port 8000)                │
+│            Backend Container (FastAPI - Port 8000)           │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │        Query Router (GPT-4o Intelligence)           │    │
 │  │  • Detects embedded DSL                             │    │
@@ -173,14 +186,14 @@ ssh -f -N -L 9200:localhost:9200 user@remote-wazuh-server
          ▼                      ▼                    ▼
 ┌─────────────┐        ┌─────────────────────────────────┐
 │  Wazuh API  │        │   Wazuh Indexer (OpenSearch)    │
-│ (Port 55000)│        │   localhost:9200 (SSH tunnel)   │
+│ (Port 55000)│        │   External Docker Network       │
 └─────────────┘        └─────────────────────────────────┘
          │                                  │
          └──────────────┬───────────────────┘
                         ▼
               ┌──────────────────┐
-              │   Wazuh Manager   │
-              │     & Agents      │
+              │  Wazuh Deployment │
+              │  (Manager + Indexer)│
               └──────────────────┘
 ```
 
@@ -484,6 +497,16 @@ For faster responses without AI analysis:
 
 ### Accessing Frontend
 
+**Docker Deployment** (Recommended):
+```bash
+# Frontend served via Nginx with HTTPS
+https://localhost:8443
+
+# SSL certificates auto-generated in ssl/ directory
+# Accept the self-signed certificate warning in browser
+```
+
+**Development** (Alternative):
 ```bash
 # Option 1: Open directly
 open frontend/index.html
@@ -492,10 +515,6 @@ open frontend/index.html
 cd frontend
 python -m http.server 8080
 # Visit http://localhost:8080
-
-# Option 3: Use any web server
-cd frontend
-npx serve
 ```
 
 ---
@@ -622,13 +641,16 @@ DEBUG=false                              # Enable debug logging
 LOG_LEVEL=INFO                           # Logging level
 ```
 
-### SSH Tunnel Configuration
+### Docker Network Configuration
 
-Edit `scripts/setup_dev_tunnel.sh`:
+Edit `.env` to match your Wazuh deployment:
 
 ```bash
-VM_IP="10.21.232.103"       # Your Wazuh server IP
-VM_USER="waserver"          # SSH username
+# Find your Wazuh network name
+docker network ls | grep wazuh
+
+# Set in .env
+WAZUH_NETWORK=multi-node_default  # or wazuh-docker_default, etc.
 ```
 
 ### Index Patterns
@@ -706,20 +728,23 @@ Currently no authentication is implemented. For production:
 
 ### Common Issues
 
-#### 1. Connection Refused (Port 9200)
+#### 1. Connection Refused to Wazuh Indexer
 
-**Problem**: `ConnectionError: Failed to establish connection to localhost:9200`
+**Problem**: `ConnectionError: Failed to establish connection to Wazuh Indexer`
 
 **Solution**:
 ```bash
-# Check if SSH tunnel is running
-ps aux | grep "ssh.*9200"
+# Check Docker network configuration
+docker network ls | grep wazuh
 
-# Restart tunnel
-./scripts/setup_dev_tunnel.sh
+# Verify WAZUH_NETWORK in .env matches your Wazuh deployment
+cat .env | grep WAZUH_NETWORK
 
-# Verify tunnel
-curl -k -u admin:password https://localhost:9200/_cluster/health
+# Check backend logs
+./scripts/docker-logs.sh backend
+
+# Test connection from backend container
+docker-compose exec backend curl -k -u admin:password https://wazuh.indexer:9200/_cluster/health
 ```
 
 #### 2. OpenAI Rate Limit
@@ -831,9 +856,11 @@ mcp_server_wazuh_2025/
 │   ├── app.js               # Frontend logic
 │   └── styles.css           # Styling
 ├── scripts/
-│   ├── dev_start.sh         # Quick start
-│   ├── setup_dev_tunnel.sh  # SSH tunnel setup
-│   └── stop_dev_tunnel.sh   # Tunnel teardown
+│   ├── docker-deploy.sh     # Deploy containers
+│   ├── docker-stop.sh       # Stop containers
+│   ├── docker-logs.sh       # View logs
+│   ├── docker-rebuild.sh    # Rebuild containers
+│   └── archive/             # Old development scripts
 ├── tests/
 │   ├── test_queries.py
 │   ├── test_mcp_cases.py
@@ -922,21 +949,26 @@ opensearch-py==2.8.0      # OpenSearch client
 ### Common Commands
 
 ```bash
-# Start server
-source .venv/bin/activate
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Deploy/Start Docker containers
+./scripts/docker-deploy.sh
 
-# Setup SSH tunnel
-./scripts/setup_dev_tunnel.sh
+# View logs
+./scripts/docker-logs.sh
+# Or specific container:
+docker-compose logs -f backend
+docker-compose logs -f frontend
 
-# Run tests
-./tests/test_queries.py
+# Stop containers
+./scripts/docker-stop.sh
 
-# Check logs
-tail -f logs/app.log
+# Rebuild after changes
+./scripts/docker-rebuild.sh
 
-# Stop tunnel
-./scripts/stop_dev_tunnel.sh
+# Check container status
+docker-compose ps
+
+# Run tests (inside container)
+docker-compose exec backend python tests/test_queries.py
 ```
 
 ### Example DSL Queries
@@ -1063,6 +1095,6 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 25, 2025  
+**Last Updated**: December 26, 2025  
 **Version**: 2.0  
 **Maintainer**: Wazuh MCP Team
